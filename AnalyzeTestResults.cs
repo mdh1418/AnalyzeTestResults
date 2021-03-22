@@ -32,20 +32,27 @@ namespace AnalyzeTestResults
     {
         static void Main(string[] args)
         {
-            var jobID = "93967bfa-3302-4821-8467-364fb9f8172a";
+            var jobID = "88d2a49a-346c-4978-93df-72a6256e3d18";
             var jobURL = $"https://helix.dot.net/api/jobs/{jobID}/workitems?api-version=2019-06-17";
             var jobJSON = $"{jobID}.json";
             var jobDir = $"jobs/{jobID}/";
             var pathToJobJSON = $"{jobDir}{jobJSON}";
 
             var workItemTestResultsDir = $"testResults/{jobID}/";
-            
+            var workItemFailedLogDir = $"failedConsoleLog/{jobID}/";
+
             if (!File.Exists(pathToJobJSON)) {
                 Directory.CreateDirectory(jobDir);
                 using (var myWebClient = new WebClient()){
                     myWebClient.DownloadFile(jobURL, pathToJobJSON);
                 }
             }
+
+            if (!Directory.Exists(workItemTestResultsDir))
+                Directory.CreateDirectory(workItemTestResultsDir);
+
+            if (!Directory.Exists(workItemFailedLogDir))
+                Directory.CreateDirectory(workItemFailedLogDir);
 
             var jsonArrayString = File.ReadAllText(pathToJobJSON);
             var jsonSeparators = new string[] { "[{", "},{", "}]" };
@@ -76,28 +83,26 @@ namespace AnalyzeTestResults
                 }
 
                 var workItemJSONString = File.ReadAllText(pathToWorkItemJSON);
-                if (!workItemJSONString.Contains("testResults.xml"))
-                    continue;
 
-                var workItemTestResultsURL = "";
-                var workItemTestResults = $"{workItem.Name}.xml";
-                var pathToWorkItemTestResults = $"{workItemTestResultsDir}/{workItemTestResults}";
-
-                
                 string pattern = @"((http|ftp|https):\/\/[\w\-_]+(\.[\w\-_]+)+([\w\-\.,@?^=%&amp;:/~\+#]*[\w\-\@?^=%&amp;/~\+#])?)";
                 Regex rgx = new Regex(pattern);
+                var matchList = rgx.Matches(workItemJSONString);
 
-                foreach (Match match in rgx.Matches(workItemJSONString)){
-                    if (match.Value.Contains("testResults.xml"))
-                        workItemTestResultsURL = match.Value;
+                var hasTestResults = workItemJSONString.Contains("testResults.xml");
+
+                var workItemFileURL = "";
+                var workItemFile = hasTestResults ? $"{workItem.Name}.xml" : $"{workItem.Name}.log";
+                var pathToWorkItemTestResults = hasTestResults ? $"{workItemTestResultsDir}/{workItemFile}" : $"{workItemFailedLogDir}/{workItemFile}" ;
+
+                var urlIdentifier = hasTestResults ? "testResults.xml" : "/console.";
+                foreach (Match match in matchList){
+                    if (match.Value.Contains(urlIdentifier))
+                        workItemFileURL = match.Value;
                 }
-
-                if (!Directory.Exists(workItemTestResultsDir))
-                    Directory.CreateDirectory(workItemTestResultsDir);
 
                 if (!File.Exists(pathToWorkItemTestResults)){
                     using (var myWebClient = new WebClient()){
-                        myWebClient.DownloadFile(workItemTestResultsURL, pathToWorkItemTestResults);
+                        myWebClient.DownloadFile(workItemFileURL, pathToWorkItemTestResults);
                     }
                 }
             }
