@@ -1,9 +1,3 @@
-// using System;
-// using System.Diagnostics;
-
-// var psi = new ProcessStartInfo { FileName = "/Users/mdhwang/runtime_wasm_clean/artifacts/bin/microsoft.netcore.app.runtime.browser-wasm/Release/runtimes/browser-wasm/native/cross/browser-wasm/mono-aot-cross" };
-// var p = Process.Start(psi);
-// p.WaitForExit();
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -32,8 +26,21 @@ namespace AnalyzeTestResults
 
     class Program
     {
+        public static Dictionary<string, string> jobIDtoNameDict = new Dictionary<string, string>(){
+            {"c05cc25d-1ac2-4530-88ba-2c0dbfeca4b0", "Android_x64_one"},
+            {"2b778a20-b0b8-4934-b7ad-abef90ed1f93", "Android_x86_one"},
+            {"f3eb11fa-06ee-49dc-92b7-d9f04c27bdd6", "Android_x64_two"},
+            {"c914cd95-f6bc-4b1a-a303-957401bd95d9", "Android_x86_two"},
+            {"0afea0eb-f6fb-4ca8-935b-6ba4373c4ce8", "Android_arm64_two"},
+            {"3a7789fa-1fae-456b-b819-6e024d6c01af", "Android_x64_three"},
+            {"d28fda8e-107e-4423-9db2-a8297ef049c0", "Android_x86_three"},
+            {"9e04cdc2-0499-4e48-b595-61d47c64f794", "Android_arm64_three"},
+            {"33934d9c-821a-4407-90de-b264cffc779c", "Android_x64_four"},
+            {"d331d0b8-b913-4432-be93-14968baf5fd0", "Android_x86_four"},
+            {"46ae0da4-f98e-4e11-a534-5bb78297813e", "Android_arm64_four"}
+        };
         // Set this value
-        public static String jobID = "b503b87a-f8ac-4c88-bcd4-3d0759167207";
+        public static String jobID = "33934d9c-821a-4407-90de-b264cffc779c";
 
         // Setup http client and job url
         public static HttpClient client = new HttpClient();
@@ -46,6 +53,15 @@ namespace AnalyzeTestResults
         public static String workItemFailedLogDir = $"failedConsoleLog/{jobID}/";   // Holds the console logs of workItem that crashed and didn't produce a test result
         public static String workItemConsoleLogDir = $"ConsoleLog/{jobID}/";        // Holds the console logs of all workItems
 
+        static void UpdateValues(String newID){
+            jobID = newID;
+            jobURL = $"https://helix.dot.net/api/jobs/{jobID}/workitems?api-version=2019-06-17";
+            jobDir = $"jobs/{jobID}/";
+            workItemJSONDir = $"jobs/{jobID}/workItemJSONs/";
+            workItemTestResultsDir = $"testResults/{jobID}/";
+            workItemFailedLogDir = $"failedConsoleLog/{jobID}/";
+            workItemConsoleLogDir = $"ConsoleLog/{jobID}/";
+        }
 
         static Task DoSomething(JobJson myJob){
             // For each JobJson with "Tests" in the name
@@ -117,6 +133,12 @@ namespace AnalyzeTestResults
                 Directory.CreateDirectory(workItemFailedLogDir);
             if (!Directory.Exists(workItemConsoleLogDir))
                 Directory.CreateDirectory(workItemConsoleLogDir);
+            if (!Directory.Exists("resultsSummary"))
+                Directory.CreateDirectory("resultsSummary");
+            if (!Directory.Exists("resultsFailures"))
+                Directory.CreateDirectory("resultsFailures");
+            if (!Directory.Exists("resultsFullFailures"))
+                Directory.CreateDirectory("resultsFullFailures");
         }
 
         static void SummarizeResults(){
@@ -152,30 +174,130 @@ namespace AnalyzeTestResults
                     summary.Add($"    {descendant.Value}");
                 }
             }
-            File.WriteAllLines($"{jobID}_results.txt", summary);
+            File.WriteAllLines($"resultsSummary/{jobIDtoNameDict[jobID]}_results.txt", summary);
+        }
+
+        static void CaptureFailures(){
+            // We want to summarize the test results
+            //     Write the Total/Pass/Fail/Skip to textfile and .xlsx (TODO)
+
+            var testResults = Directory.EnumerateFiles(workItemTestResultsDir, "*.xml");
+
+            List<String> summary = new List<String>();
+            foreach (var testResult in testResults)
+            {
+                XElement testResultXML = XElement.Load(testResult);
+
+                IEnumerable<XElement> resultElements = testResultXML.Elements();
+                foreach (var elem in resultElements) {
+                    var name = elem.Attribute("name");
+                    var failed = elem.Attribute("failed");
+                    if (failed?.Value == "0")
+                        continue;
+                    summary.Add($"\n{name!.Value}   Failed: {failed?.Value}");
+                }
+
+                IEnumerable<XElement> descendants = testResultXML.Descendants("collection");
+                foreach (var descendant in descendants)
+                {
+                    var result = descendant.Attribute("failed");
+                    if (result.Value != "0"){
+                        // summary.Add(descendant.Attribute("name").Value);
+                        IEnumerable<XElement> tests = descendant.Descendants("test");
+                        foreach (var test in tests){
+                            var myResult = test.Attribute("result");
+                            if (myResult.Value == "Fail")
+                                summary.Add($"{test.Attribute("name").Value}");
+                        }
+                    }
+                }
+            }
+            File.WriteAllLines($"resultsFailures/{jobIDtoNameDict[jobID]}_failures.txt", summary);
+        }
+
+        static void CaptureFullFailures(){
+            // We want to summarize the test results
+            //     Write the Total/Pass/Fail/Skip to textfile and .xlsx (TODO)
+
+            var testResults = Directory.EnumerateFiles(workItemTestResultsDir, "*.xml");
+
+            List<String> summary = new List<String>();
+            foreach (var testResult in testResults)
+            {
+                XElement testResultXML = XElement.Load(testResult);
+
+                IEnumerable<XElement> resultElements = testResultXML.Elements();
+                foreach (var elem in resultElements) {
+                    var name = elem.Attribute("name");
+                    var failed = elem.Attribute("failed");
+                    if (failed?.Value == "0")
+                        continue;
+                    summary.Add($"\n\n{name!.Value}   Failed: {failed?.Value}");
+                }
+
+                IEnumerable<XElement> descendants = testResultXML.Descendants("collection");
+                foreach (var descendant in descendants)
+                {
+                    var result = descendant.Attribute("failed");
+                    if (result.Value != "0"){
+                        summary.Add($"\n{descendant.Attribute("name").Value}");
+                        IEnumerable<XElement> tests = descendant.Descendants("test");
+                        foreach (var test in tests){
+                            var myResult = test.Attribute("result");
+                            if (myResult.Value == "Fail")
+                                summary.Add($"{test.Attribute("name").Value}");
+                            IEnumerable<XElement> messages = test.Descendants("message");
+                            foreach (var message in messages){
+                                if (message != null)
+                                    summary.Add($"    {message.Value}");
+                            }
+                        }
+                    }
+                }
+            }
+            File.WriteAllLines($"resultsFullFailures/{jobIDtoNameDict[jobID]}_full_failures.txt", summary);
         }
 
         static async Task Main(string[] args)
         {
-            SetupDirectories();
+            var jobIDList = new List<String>() {"c05cc25d-1ac2-4530-88ba-2c0dbfeca4b0",
+                                                "2b778a20-b0b8-4934-b7ad-abef90ed1f93",
+                                                "f3eb11fa-06ee-49dc-92b7-d9f04c27bdd6",
+                                                "c914cd95-f6bc-4b1a-a303-957401bd95d9",
+                                                "0afea0eb-f6fb-4ca8-935b-6ba4373c4ce8",
+                                                "3a7789fa-1fae-456b-b819-6e024d6c01af",
+                                                "d28fda8e-107e-4423-9db2-a8297ef049c0",
+                                                "9e04cdc2-0499-4e48-b595-61d47c64f794",
+                                                "33934d9c-821a-4407-90de-b264cffc779c",
+                                                "d331d0b8-b913-4432-be93-14968baf5fd0",
+                                                "46ae0da4-f98e-4e11-a534-5bb78297813e"};
+            foreach (String thisJobID in jobIDList){
+                UpdateValues(thisJobID);
 
-            // Download job json
-            var pathToJobJSON = $"{jobDir}{jobID}.json";
-            if (!File.Exists(pathToJobJSON)){
-                HttpResponseMessage response = await client.GetAsync(jobURL);
-                using (var fs = new FileStream(pathToJobJSON, FileMode.OpenOrCreate))
-                    await response.Content.CopyToAsync(fs);
+                SetupDirectories();
+
+                // Download job json
+                var pathToJobJSON = $"{jobDir}{jobID}.json";
+                if (!File.Exists(pathToJobJSON)){
+                    HttpResponseMessage response = await client.GetAsync(jobURL);
+                    using (var fs = new FileStream(pathToJobJSON, FileMode.OpenOrCreate))
+                        await response.Content.CopyToAsync(fs);
+                }
+
+                String jsonArrayString = File.ReadAllText(pathToJobJSON);
+                List<JobJson> jobJsonList = JsonSerializer.Deserialize<List<JobJson>>(jsonArrayString).Where(jobJson => jobJson.Name.Contains("Tests")).ToList();
+
+                var tasks = new List<Task>();
+                foreach (JobJson jobJson in jobJsonList)
+                    tasks.Add(Task.Run( () => { DoSomething(jobJson); } ));
+                await Task.WhenAll(tasks);
+
+                SummarizeResults();
+
+                CaptureFailures();
+
+                CaptureFullFailures();
             }
-
-            String jsonArrayString = File.ReadAllText(pathToJobJSON);
-            List<JobJson> jobJsonList = JsonSerializer.Deserialize<List<JobJson>>(jsonArrayString).Where(jobJson => jobJson.Name.Contains("Tests")).ToList();
-
-            var tasks = new List<Task>();
-            foreach (JobJson jobJson in jobJsonList)
-                tasks.Add(Task.Run( () => { DoSomething(jobJson); } ));
-            await Task.WhenAll(tasks);
-
-            SummarizeResults();
         }
     }
 }
