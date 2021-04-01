@@ -347,31 +347,31 @@ namespace AnalyzeTestResults
 
                 SetupDirectories();
 
-                // // Download job json
-                // var pathToJobJSON = $"{jobDir}{jobIDtoNameDict[jobID]}.json";
-                // if (!File.Exists(pathToJobJSON)){
-                //     HttpResponseMessage response = await client.GetAsync(jobURL);
-                //     using (var fs = new FileStream(pathToJobJSON, FileMode.OpenOrCreate))
-                //         await response.Content.CopyToAsync(fs);
-                // }
+                // Download job json
+                var pathToJobJSON = $"{jobDir}{jobIDtoNameDict[jobID]}.json";
+                if (!File.Exists(pathToJobJSON)){
+                    HttpResponseMessage response = await client.GetAsync(jobURL);
+                    using (var fs = new FileStream(pathToJobJSON, FileMode.OpenOrCreate))
+                        await response.Content.CopyToAsync(fs);
+                }
 
-                // String jsonArrayString = File.ReadAllText(pathToJobJSON);
-                // List<JobJson> jobJsonList = JsonSerializer.Deserialize<List<JobJson>>(jsonArrayString).Where(jobJson => jobJson.Name.Contains("Tests")).ToList();
+                String jsonArrayString = File.ReadAllText(pathToJobJSON);
+                List<JobJson> jobJsonList = JsonSerializer.Deserialize<List<JobJson>>(jsonArrayString).Where(jobJson => jobJson.Name.Contains("Tests")).ToList();
 
-                // var tasks = new List<Task>();
-                // foreach (JobJson jobJson in jobJsonList)
-                //     tasks.Add(Task.Run( () => { DoSomething(jobJson); } ));
-                // await Task.WhenAll(tasks);
+                var tasks = new List<Task>();
+                foreach (JobJson jobJson in jobJsonList)
+                    tasks.Add(Task.Run( () => { DoSomething(jobJson); } ));
+                await Task.WhenAll(tasks);
 
-                // SummarizeResults();
+                SummarizeResults();
 
-                // CaptureFailures();
+                CaptureFailures();
 
-                // CaptureFullFailures();
+                CaptureFullFailures();
 
                 CapturePNSEFailures();
 
-                //CaptureSkips();
+                CaptureSkips();
             }
         }
     }
