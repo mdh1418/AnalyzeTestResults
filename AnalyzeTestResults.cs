@@ -139,12 +139,13 @@ namespace AnalyzeTestResults
                 Directory.CreateDirectory("resultsFailures");
             if (!Directory.Exists("resultsFullFailures"))
                 Directory.CreateDirectory("resultsFullFailures");
+            if (!Directory.Exists("resultsPNSEFailures"))
+                Directory.CreateDirectory("resultsPNSEFailures");
+            if (!Directory.Exists("resultsSkips"))
+                Directory.CreateDirectory("resultsSkips");
         }
 
         static void SummarizeResults(){
-            // We want to summarize the test results
-            //     Write the Total/Pass/Fail/Skip to textfile and .xlsx (TODO)
-
             var testResults = Directory.EnumerateFiles(workItemTestResultsDir, "*.xml");
 
             List<String> summary = new List<String>();
@@ -178,9 +179,6 @@ namespace AnalyzeTestResults
         }
 
         static void CaptureFailures(){
-            // We want to summarize the test results
-            //     Write the Total/Pass/Fail/Skip to textfile and .xlsx (TODO)
-
             var testResults = Directory.EnumerateFiles(workItemTestResultsDir, "*.xml");
 
             List<String> summary = new List<String>();
@@ -216,9 +214,6 @@ namespace AnalyzeTestResults
         }
 
         static void CaptureFullFailures(){
-            // We want to summarize the test results
-            //     Write the Total/Pass/Fail/Skip to textfile and .xlsx (TODO)
-
             var testResults = Directory.EnumerateFiles(workItemTestResultsDir, "*.xml");
 
             List<String> summary = new List<String>();
@@ -258,6 +253,82 @@ namespace AnalyzeTestResults
             File.WriteAllLines($"resultsFullFailures/{jobIDtoNameDict[jobID]}_full_failures.txt", summary);
         }
 
+        static void CapturePNSEFailures(){
+            var testResults = Directory.EnumerateFiles(workItemTestResultsDir, "*.xml");
+
+            List<String> summary = new List<String>();
+            foreach (var testResult in testResults)
+            {
+                XElement testResultXML = XElement.Load(testResult);
+
+                IEnumerable<XElement> resultElements = testResultXML.Elements();
+                foreach (var elem in resultElements) {
+                    var name = elem.Attribute("name");
+                    var failed = elem.Attribute("failed");
+                    if (failed?.Value == "0")
+                        continue;
+                    summary.Add($"\n{name!.Value}   Failed: {failed?.Value}");
+                }
+
+                IEnumerable<XElement> descendants = testResultXML.Descendants("collection");
+                foreach (var descendant in descendants)
+                {
+                    var result = descendant.Attribute("failed");
+                    if (result.Value != "0"){
+                        IEnumerable<XElement> tests = descendant.Descendants("test");
+                        foreach (var test in tests){
+                            var myResult = test.Attribute("result");
+                            IEnumerable<XElement> messages = test.Descendants("message");
+                            foreach (var message in messages){
+                                if (message != null && message.Value.Contains("PlatformNotSupportedException"))
+                                    summary.Add($"{test.Attribute("name").Value}");
+                            }
+                        }
+                    }
+                }
+            }
+            File.WriteAllLines($"resultsPNSEFailures/{jobIDtoNameDict[jobID]}_PNSE_failures.txt", summary);
+        }
+
+        static void CaptureSkips(){
+            var testResults = Directory.EnumerateFiles(workItemTestResultsDir, "*.xml");
+
+            List<String> summary = new List<String>();
+            foreach (var testResult in testResults)
+            {
+                XElement testResultXML = XElement.Load(testResult);
+
+                IEnumerable<XElement> resultElements = testResultXML.Elements();
+                foreach (var elem in resultElements) {
+                    var name = elem.Attribute("name");
+                    var skipped = elem.Attribute("skipped");
+                    if (skipped?.Value == "0")
+                        continue;
+                    summary.Add($"\n\n{name!.Value}   Skipped: {skipped?.Value}");
+                }
+
+                IEnumerable<XElement> descendants = testResultXML.Descendants("collection");
+                foreach (var descendant in descendants)
+                {
+                    var result = descendant.Attribute("skipped");
+                    if (result.Value != "0"){
+                        IEnumerable<XElement> tests = descendant.Descendants("test");
+                        foreach (var test in tests){
+                            var myResult = test.Attribute("result");
+                            if (myResult.Value == "Skip")
+                                summary.Add($"{test.Attribute("name").Value}");
+                            IEnumerable<XElement> reasons = test.Descendants("reason");
+                            foreach (var reason in reasons){
+                                if (reason != null)
+                                    summary.Add($"    {reason.Value}");
+                            }
+                        }
+                    }
+                }
+            }
+            File.WriteAllLines($"resultsSkips/{jobIDtoNameDict[jobID]}_skipped.txt", summary);
+        }
+
         static async Task Main(string[] args)
         {
             var jobIDList = new List<String>() {"c05cc25d-1ac2-4530-88ba-2c0dbfeca4b0",
@@ -276,27 +347,31 @@ namespace AnalyzeTestResults
 
                 SetupDirectories();
 
-                // Download job json
-                var pathToJobJSON = $"{jobDir}{jobIDtoNameDict[jobID]}.json";
-                if (!File.Exists(pathToJobJSON)){
-                    HttpResponseMessage response = await client.GetAsync(jobURL);
-                    using (var fs = new FileStream(pathToJobJSON, FileMode.OpenOrCreate))
-                        await response.Content.CopyToAsync(fs);
-                }
+                // // Download job json
+                // var pathToJobJSON = $"{jobDir}{jobIDtoNameDict[jobID]}.json";
+                // if (!File.Exists(pathToJobJSON)){
+                //     HttpResponseMessage response = await client.GetAsync(jobURL);
+                //     using (var fs = new FileStream(pathToJobJSON, FileMode.OpenOrCreate))
+                //         await response.Content.CopyToAsync(fs);
+                // }
 
-                String jsonArrayString = File.ReadAllText(pathToJobJSON);
-                List<JobJson> jobJsonList = JsonSerializer.Deserialize<List<JobJson>>(jsonArrayString).Where(jobJson => jobJson.Name.Contains("Tests")).ToList();
+                // String jsonArrayString = File.ReadAllText(pathToJobJSON);
+                // List<JobJson> jobJsonList = JsonSerializer.Deserialize<List<JobJson>>(jsonArrayString).Where(jobJson => jobJson.Name.Contains("Tests")).ToList();
 
-                var tasks = new List<Task>();
-                foreach (JobJson jobJson in jobJsonList)
-                    tasks.Add(Task.Run( () => { DoSomething(jobJson); } ));
-                await Task.WhenAll(tasks);
+                // var tasks = new List<Task>();
+                // foreach (JobJson jobJson in jobJsonList)
+                //     tasks.Add(Task.Run( () => { DoSomething(jobJson); } ));
+                // await Task.WhenAll(tasks);
 
-                SummarizeResults();
+                // SummarizeResults();
 
-                CaptureFailures();
+                // CaptureFailures();
 
-                CaptureFullFailures();
+                // CaptureFullFailures();
+
+                CapturePNSEFailures();
+
+                //CaptureSkips();
             }
         }
     }
