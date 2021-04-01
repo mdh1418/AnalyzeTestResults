@@ -47,20 +47,20 @@ namespace AnalyzeTestResults
         public static String jobURL = $"https://helix.dot.net/api/jobs/{jobID}/workitems?api-version=2019-06-17";
 
         // Setup Directories
-        public static String jobDir = $"jobs/{jobID}/";                             // Holds the jsons of the job and workItems
-        public static String workItemJSONDir = $"jobs/{jobID}/workItemJSONs/";      // Holds the jsons of all workItems
-        public static String workItemTestResultsDir = $"testResults/{jobID}/";      // Holds the test results of all workItems
-        public static String workItemFailedLogDir = $"failedConsoleLog/{jobID}/";   // Holds the console logs of workItem that crashed and didn't produce a test result
-        public static String workItemConsoleLogDir = $"ConsoleLog/{jobID}/";        // Holds the console logs of all workItems
+        public static String jobDir = $"jobs/{jobIDtoNameDict[jobID]}/";                             // Holds the jsons of the job and workItems
+        public static String workItemJSONDir = $"jobs/{jobIDtoNameDict[jobID]}/workItemJSONs/";      // Holds the jsons of all workItems
+        public static String workItemTestResultsDir = $"testResults/{jobIDtoNameDict[jobID]}/";      // Holds the test results of all workItems
+        public static String workItemFailedLogDir = $"failedConsoleLog/{jobIDtoNameDict[jobID]}/";   // Holds the console logs of workItem that crashed and didn't produce a test result
+        public static String workItemConsoleLogDir = $"ConsoleLog/{jobIDtoNameDict[jobID]}/";        // Holds the console logs of all workItems
 
         static void UpdateValues(String newID){
             jobID = newID;
-            jobURL = $"https://helix.dot.net/api/jobs/{jobID}/workitems?api-version=2019-06-17";
-            jobDir = $"jobs/{jobID}/";
-            workItemJSONDir = $"jobs/{jobID}/workItemJSONs/";
-            workItemTestResultsDir = $"testResults/{jobID}/";
-            workItemFailedLogDir = $"failedConsoleLog/{jobID}/";
-            workItemConsoleLogDir = $"ConsoleLog/{jobID}/";
+            jobURL = $"https://helix.dot.net/api/jobs/{jobIDtoNameDict[jobID]}/workitems?api-version=2019-06-17";
+            jobDir = $"jobs/{jobIDtoNameDict[jobID]}/";
+            workItemJSONDir = $"jobs/{jobIDtoNameDict[jobID]}/workItemJSONs/";
+            workItemTestResultsDir = $"testResults/{jobIDtoNameDict[jobID]}/";
+            workItemFailedLogDir = $"failedConsoleLog/{jobIDtoNameDict[jobID]}/";
+            workItemConsoleLogDir = $"ConsoleLog/{jobIDtoNameDict[jobID]}/";
         }
 
         static Task DoSomething(JobJson myJob){
@@ -277,7 +277,7 @@ namespace AnalyzeTestResults
                 SetupDirectories();
 
                 // Download job json
-                var pathToJobJSON = $"{jobDir}{jobID}.json";
+                var pathToJobJSON = $"{jobDir}{jobIDtoNameDict[jobID]}.json";
                 if (!File.Exists(pathToJobJSON)){
                     HttpResponseMessage response = await client.GetAsync(jobURL);
                     using (var fs = new FileStream(pathToJobJSON, FileMode.OpenOrCreate))
