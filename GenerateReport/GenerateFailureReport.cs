@@ -46,7 +46,7 @@ namespace GenerateFailureReport
                     {
                         if (assemblyFailureMessage.Contains(".dll   Failed"))
                             continue;
-                        contentsToAdd.Add(assemblyFailureMessage);
+                        contentsToAdd.Add(assemblyFailureMessage.Split('(')[0]);
                     }
                     priorContents.UnionWith(contentsToAdd);
                     assemblyFailuresDict[assemblyName] = priorContents;
